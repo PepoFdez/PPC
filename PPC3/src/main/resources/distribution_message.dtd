@@ -1,0 +1,15 @@
+<!ELEMENT distributionMessage (variables)>
+<!ATTLIST distributionMessage
+    messageId CDATA #REQUIRED
+    timestamp CDATA #REQUIRED
+    serverId CDATA #REQUIRED
+    encodingFormat (XML|JSON) #REQUIRED>
+
+<!ELEMENT variables (variable+)>
+
+<!ELEMENT variable (value, unit)>
+<!ATTLIST variable
+    name CDATA #REQUIRED>
+
+<!ELEMENT value (#PCDATA)>
+<!ELEMENT unit (#PCDATA)>
