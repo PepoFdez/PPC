@@ -29,3 +29,5 @@ replay_pid*
 
 *module-info*
 *classpath*
+*.txt
+*.mkv
