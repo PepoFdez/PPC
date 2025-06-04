@@ -24,7 +24,6 @@ public class HTTPClient {
                 }
             } catch (IOException e) {
                 System.err.println("Error al cargar la cookie HTTP: " + e.getMessage());
-                // No es crítico, se continuará sin cookie si falla la carga
             }
         }
     }
@@ -88,9 +87,6 @@ public class HTTPClient {
                     headersEnded = true;
                 }
             }
-            // Si se desea, se puede mostrar solo el contenido HTML después de las cabeceras
-            // System.out.println("\n--- Contenido HTML Recibido ---");
-            // System.out.println(htmlContent.toString());
 
         } catch (IOException e) {
             System.err.println("Error en la comunicación HTTP: " + e.getMessage());

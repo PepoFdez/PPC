@@ -151,7 +151,9 @@ public class RestApiHandler implements HttpHandler {
 
     // Simple class for error responses
     private static class ErrorResponse {
-        String error;
+        @SuppressWarnings("unused")
+		private String error;
         public ErrorResponse(String error) { this.error = error; }
+
     }
 }

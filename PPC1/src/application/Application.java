@@ -8,8 +8,6 @@ import java.util.Scanner;
 
 public class Application {
     public static void main(String[] args) {
-        // Usar constructores que permiten especificar el puerto si es necesario
-        // o los constructores por defecto para los puertos de la práctica
         HTTPServer serverHTTP = new HTTPServer(); // Puerto por defecto 8080
         SSLServer serverHTTPS = new SSLServer();   // Puerto por defecto 4430
 
@@ -35,13 +33,6 @@ public class Application {
                 } else {
                     System.out.println("'" + protocol + "' no es un protocolo válido. Intenta con http, https o salir.");
                 }
-
-                // No preguntar si quiere otra solicitud aquí si los clientes ya manejan múltiples peticiones
-                // o si el bucle es para cambiar de protocolo.
-                // System.out.println("¿Quieres hacer otra solicitud general? (s/n)");
-                // if (!scanner.nextLine().equalsIgnoreCase("s")) {
-                //     break;
-                // }
             }
         } finally {
             // Detener los servidores cuando la aplicación cliente termina

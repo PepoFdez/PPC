@@ -7,7 +7,6 @@ import java.util.Scanner;
 import javax.net.ssl.*;
 
 public class SSLClient {
-    // Asegúrate de que estas rutas y contraseñas coincidan con tu configuración
     static public final String KSTORE_CLIENT = "certs/client.jks"; // Keystore del cliente con su cert y clave privada
     static public final String TSTORE_CLIENT = "certs/clienttrust.jks"; // Truststore del cliente con el CA o cert del servidor
     static public final String KS_PWD = "cookie"; // Contraseña para el keystore
@@ -66,13 +65,11 @@ public class SSLClient {
         tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // "SunX509" es común
         tmf.init(ts);
 
-        ctx = SSLContext.getInstance("TLSv1.2"); // O "TLSv1.3" si es compatible
+        ctx = SSLContext.getInstance("TLSv1.2");
         ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
 
         SSLSocketFactory fac = ctx.getSocketFactory();
         SSLSocket sslSocket = (SSLSocket) fac.createSocket(address, port);
-        // Opcional: especificar suites de cifrado si es necesario
-        // sslSocket.setEnabledCipherSuites(new String[]{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"});
         sslSocket.startHandshake(); // Iniciar el handshake explícitamente
         return sslSocket;
     }
@@ -83,7 +80,7 @@ public class SSLClient {
         DataOutputStream salida = null;
 
         try {
-            sslSocket = createSSLSocket("localhost", 4430); // Usar "localhost" o la IP/hostname real del servidor
+            sslSocket = createSSLSocket("localhost", 4430);
 
             // Usar UTF-8 para la lectura/escritura
             entrada = new BufferedReader(new InputStreamReader(sslSocket.getInputStream(), StandardCharsets.UTF_8));
@@ -97,7 +94,7 @@ public class SSLClient {
 
             StringBuilder requestBuilder = new StringBuilder();
             requestBuilder.append("GET ").append(recurso).append(" HTTP/1.1\r\n");
-            requestBuilder.append("Host: localhost\r\n"); // O el nombre del host configurado en el certificado del servidor
+            requestBuilder.append("Host: localhost\r\n");
             requestBuilder.append("Connection: close\r\n");
             if (!cookie.isEmpty()) {
                 requestBuilder.append("Cookie: ").append(cookie).append("\r\n");
@@ -127,8 +124,6 @@ public class SSLClient {
                     headersEnded = true;
                 }
             }
-             // System.out.println("\n--- Contenido HTML Recibido ---");
-             // System.out.println(htmlContent.toString());
 
         } catch (GeneralSecurityException e) {
             System.err.println("Error de seguridad SSL: " + e.getMessage());

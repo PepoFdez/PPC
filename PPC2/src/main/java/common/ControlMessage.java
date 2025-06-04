@@ -42,9 +42,6 @@ public class ControlMessage extends AbstractMessage {
     public static ControlMessage deserialize(String jsonData) {
         try {
             ControlMessage msg = MessageUtils.fromJson(jsonData, ControlMessage.class);
-            // GSON debería haber poblado todos los campos.
-            // Si los parámetros vienen como Double y se espera Integer (ej. frequency),
-            // se deberá castear en el servidor al usar el valor.
             if (msg != null) {
                 msg.setEncodingFormat(MessageUtils.ENCODING_JSON); // El formato es implícitamente JSON
             }

@@ -21,12 +21,6 @@ public class DistributionMessage extends AbstractMessage {
         this.setEncodingFormat(encodingFormat); // Heredado de AbstractMessage
     }
 
-    // Constructor vacío para GSON (si es necesario, aunque GSON es bastante flexible)
-    /*private DistributionMessage() {
-        super();
-        this.variables = new ArrayList<>();
-    }*/
-
 
     public void addVariable(WeatherVariable var) {
         this.variables.add(var);
@@ -91,11 +85,6 @@ public class DistributionMessage extends AbstractMessage {
         if (MessageUtils.ENCODING_JSON.equals(type)) {
             try {
                 DistributionMessage msg = MessageUtils.fromJson(data, DistributionMessage.class);
-                // GSON debería haber poblado 'serverId', 'variables', y los campos de AbstractMessage
-                // si los nombres de los campos coinciden y tienen setters o son accesibles.
-                // Si AbstractMessage tiene campos que no se setean, considera pasarlos en el constructor
-                // o asegurar que GSON pueda acceder a ellos.
-                // Forzamos el encodingFormat aquí porque GSON no lo sabrá del propio JSON si no está como campo
                 msg.setEncodingFormat(MessageUtils.ENCODING_JSON);
                 return msg;
             } catch (JsonSyntaxException e) {
@@ -108,7 +97,6 @@ public class DistributionMessage extends AbstractMessage {
                 Element root = doc.getDocumentElement();
                 
                 String serverId = root.getAttribute("serverId");
-                // String encoding = root.getAttribute("encodingFormat"); // Ya lo sabemos por el prefijo
 
                 DistributionMessage msg = new DistributionMessage(serverId, MessageUtils.ENCODING_XML);
                 // Poblar campos de AbstractMessage desde atributos XML

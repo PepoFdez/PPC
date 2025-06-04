@@ -5,14 +5,19 @@ import common.DistributionMessage;
 import common.MessageUtils;
 import common.WeatherVariable;
 
-// Cambios de imports de jakarta.mail.* a javax.mail.*
+// Imports para javax.mail
 import javax.mail.*;
 import javax.mail.internet.*;
 import javax.mail.search.FlagTerm;
+import javax.activation.DataHandler;
+import javax.activation.DataSource;
+import javax.mail.util.ByteArrayDataSource; // Específico de javax.mail
 
+import java.nio.charset.StandardCharsets; // Para UTF-8
 import java.util.Properties;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale; // Para formateo de números
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
@@ -33,8 +38,12 @@ public class EmailService {
         initializeSessions();
     }
 
+    // Método para obtener la dirección de correo del servicio (útil para Client.showHelp)
+    public String getServiceEmailAddress() {
+        return config.serviceEmailAddress;
+    }
+
     private void initializeSessions() {
-        // SMTP Session for sending mail
         Properties smtpProps = new Properties();
         smtpProps.put("mail.smtp.host", config.smtpHost);
         smtpProps.put("mail.smtp.port", config.smtpPort);
@@ -53,9 +62,6 @@ public class EmailService {
                 return new PasswordAuthentication(config.smtpUser, config.smtpPassword);
             }
         });
-        // this.sendSession.setDebug(true); // O System.setProperty("javax.mail.debug", "true");
-
-        // POP3/IMAP Session for receiving
         Properties storeProps = new Properties();
         final String protocolKeyPrefix = "mail." + config.storeProtocol + ".";
         storeProps.put(protocolKeyPrefix + "host", config.incomingHost);
@@ -64,9 +70,6 @@ public class EmailService {
         if (config.useSslStore) {
             storeProps.put(protocolKeyPrefix + "ssl.enable", "true");
         }
-        // Timeouts para IMAP (útil para evitar bloqueos indefinidos)
-        // storeProps.put("mail.imap.connectiontimeout", "10000"); // 10 segundos
-        // storeProps.put("mail.imap.timeout", "10000"); // 10 segundos
 
         Session receiveSession = Session.getInstance(storeProps);
         // receiveSession.setDebug(true); // O usar System.setProperty("javax.mail.debug", "true");
@@ -85,19 +88,19 @@ public class EmailService {
         }
         running = true;
         pollingThread = new Thread(this::pollEmails, "EmailPollingThread");
-        pollingThread.setDaemon(true); // Para que el hilo no impida que la JVM se cierre
+        pollingThread.setDaemon(true);
         pollingThread.start();
-        // System.out.println("EmailService started. Polling for emails to " + config.serviceEmailAddress); // Ya se imprime desde Client
+        // El mensaje de inicio se puede manejar en Client.java
     }
 
     public void stop() {
         running = false;
         if (pollingThread != null) {
-            pollingThread.interrupt(); // Interrumpir el sleep del hilo de sondeo
+            pollingThread.interrupt();
             try {
-                pollingThread.join(10000); // Esperar un tiempo prudencial para que termine
+                pollingThread.join(10000);
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt(); // Restaurar el estado de interrupción
+                Thread.currentThread().interrupt();
                 System.err.println("Email polling thread interrupted while stopping.");
             }
         }
@@ -118,44 +121,41 @@ public class EmailService {
             try {
                 if (!store.isConnected()) {
                     System.out.println("EmailService: Connecting to mail store " + config.storeProtocol + " ("+config.incomingHost+")...");
-                    store.connect(config.incomingUser, config.incomingPassword); // El host se toma de las propiedades de la sesión
+                    store.connect(config.incomingUser, config.incomingPassword);
+                    System.out.println("EmailService: Connected to " + config.storeProtocol + " store.");
                 }
-                inbox = store.getFolder("INBOX"); // Carpeta de entrada estándar
-                inbox.open(Folder.READ_WRITE); // READ_WRITE para poder cambiar flags (ej. SEEN, DELETED)
+                inbox = store.getFolder("INBOX");
+                inbox.open(Folder.READ_WRITE);
 
-                // Buscar mensajes no leídos/nuevos
                 Message[] messages = inbox.search(new FlagTerm(new Flags(Flags.Flag.SEEN), false));
                 if (messages.length > 0) {
                     System.out.println("EmailService: Found " + messages.length + " unseen messages.");
                 }
 
-
                 for (Message message : messages) {
-                    String messageIdForLog = ""; 
+                    String messageIdForLog = "";
                     boolean alreadyProcessed = false;
 
-                    // Evitar procesamiento múltiple usando UID para IMAP
                     if ("imap".equalsIgnoreCase(config.storeProtocol)) {
-                        if (inbox instanceof UIDFolder) { // Buena práctica verificar
+                        if (inbox instanceof UIDFolder) {
                            UIDFolder uidFolder = (UIDFolder) inbox;
                            long uid = uidFolder.getUID(message);
                            messageIdForLog = "UID-" + uid;
                            if (processedMessageUIDs.contains(messageIdForLog)) {
-                               // System.out.println("EmailService: Skipping already processed IMAP message " + messageIdForLog); // Opcional
                                alreadyProcessed = true;
                            }
                         } else {
-                            // UIDFolder no soportado, recurrir a Message-ID si es posible
                             String[] headers = message.getHeader("Message-ID");
                             if (headers != null && headers.length > 0) messageIdForLog = headers[0]; else messageIdForLog = "MsgNum-" + message.getMessageNumber();
                         }
-                    } else { // Para POP3, Message-ID es más común para rastreo si no se borran
+                    } else { // POP3
                         String[] headers = message.getHeader("Message-ID");
                         if (headers != null && headers.length > 0) messageIdForLog = headers[0]; else messageIdForLog = "MsgNum-" + message.getMessageNumber();
                     }
 
                     if (alreadyProcessed) {
-                        message.setFlag(Flags.Flag.SEEN, true); // Asegurar que esté marcado como visto
+                        System.out.println("EmailService: Skipping already processed message " + messageIdForLog);
+                        message.setFlag(Flags.Flag.SEEN, true);
                         continue;
                     }
 
@@ -165,13 +165,12 @@ public class EmailService {
                     
                     System.out.println("EmailService: Processing email from " + from + " with subject: \"" + subject + "\" (ID: " + messageIdForLog + ")");
 
-                    // Parsear petición del asunto (requisito Práctica 3)
                     if (subject != null) {
                         String trimmedSubject = subject.trim().toUpperCase();
-                        if (trimmedSubject.equals("GET_DATA")) { // Petición de datos
-                            processGetDataRequest(from, subject); // Procesar y responder
+                        if (trimmedSubject.equals("GET_DATA")) {
+                            processGetDataRequest(from, subject);
                             if ("imap".equalsIgnoreCase(config.storeProtocol) && messageIdForLog.startsWith("UID-")) {
-                                processedMessageUIDs.add(messageIdForLog); // Añadir a procesados solo si es IMAP y tenemos UID
+                                processedMessageUIDs.add(messageIdForLog);
                             }
                         } else {
                              System.out.println("EmailService: Unknown command in subject: " + subject);
@@ -179,36 +178,29 @@ public class EmailService {
                     } else {
                          System.out.println("EmailService: Email with no subject from " + from);
                     }
-
-                    message.setFlag(Flags.Flag.SEEN, true); // Marcar como visto para evitar reprocesamiento en la siguiente encuesta
-                    // Para POP3, si quieres borrar los mensajes del servidor después de procesarlos:
-                    // if ("pop3".equalsIgnoreCase(config.storeProtocol)) {
-                    //    message.setFlag(Flags.Flag.DELETED, true);
-                    // }
+                    message.setFlag(Flags.Flag.SEEN, true);
                 }
 
             } catch (AuthenticationFailedException afe) {
                 System.err.println("EmailService: Authentication failed for " + config.storeProtocol + " account " + config.incomingUser + ". Check credentials.");
                 System.err.println("Error details: " + afe.getMessage());
-                running = false; // Detener el sondeo si la autenticación falla para evitar bloqueos/spam
+                running = false; 
             } catch (MessagingException e) {
                 if (running) {
                     System.err.println("EmailService polling error: " + e.getMessage());
-                    // e.printStackTrace(); // Descomentar para debug detallado
-                    // Intentar cerrar conexiones de forma segura en caso de error
+                    // e.printStackTrace(); 
                     if (inbox != null && inbox.isOpen()) {
-                        try { inbox.close(false); } catch (MessagingException ignored) {} // false para no expurgar
+                        try { inbox.close(false); } catch (MessagingException ignored) {}
                     }
                     if (store != null && store.isConnected()) {
                         try { store.close(); } catch (MessagingException ignored) {}
                     }
-                    // Pausa antes de reintentar la conexión para no saturar
                     try { Thread.sleep(30000); } catch (InterruptedException interEx) { Thread.currentThread().interrupt(); }
                 }
             } finally {
                 if (inbox != null && inbox.isOpen()) {
                     try {
-                        inbox.close("pop3".equalsIgnoreCase(config.storeProtocol)); // true para expurgar si es POP3 y se marcaron DELETED
+                        inbox.close("pop3".equalsIgnoreCase(config.storeProtocol));
                     } catch (MessagingException e) {
                         System.err.println("Error closing inbox: " + e.getMessage());
                     }
@@ -218,12 +210,11 @@ public class EmailService {
             try {
                 Thread.sleep(config.pollingIntervalSeconds * 1000L);
             } catch (InterruptedException e) {
-                if (!running) { // Si 'running' es false, es una interrupción para apagar
+                if (!running) {
                     System.out.println("EmailService polling thread interrupted for shutdown.");
-                    break; // Salir del bucle while
+                    break; 
                 }
-                // Si 'running' es true, fue una interrupción inesperada, restaurar flag y continuar (o decidir otra acción)
-                Thread.currentThread().interrupt(); 
+                Thread.currentThread().interrupt();
                 System.out.println("EmailService polling thread interrupted unexpectedly, but service still running.");
             }
         }
@@ -246,28 +237,30 @@ public class EmailService {
                 sb.append("Last Update: ").append(new Date(msg.getTimestamp())).append("\n");
                 sb.append("Encoding used by server: ").append(msg.getEncodingFormat()).append("\n");
                 for (WeatherVariable var : msg.getVariables()) {
-                    sb.append(String.format("  - %s: %.2f %s\n", var.getName(), var.getValue(), var.getUnit()));
+                    // Usar Locale.US para formatear el double con punto decimal
+                    sb.append(String.format(Locale.US,"  - %s: %.2f %s\n", var.getName(), var.getValue(), var.getUnit()));
                 }
                 sb.append("\n");
 
                 try {
-                    String fullSerialization = msg.serialize(); // Este método añade "TYPE:"
+                    String fullSerialization = msg.serialize();
                     String jsonPayload = null;
                     String xmlPayload = null;
 
                     // Preparar JSON
                     if (MessageUtils.ENCODING_JSON.equals(msg.getEncodingFormat())) {
-                        // Extraer payload si el mensaje ya está serializado con prefijo
                         if (fullSerialization != null && fullSerialization.startsWith(MessageUtils.ENCODING_JSON + ":")) {
                              jsonPayload = fullSerialization.substring((MessageUtils.ENCODING_JSON + ":").length());
-                        } else { // Serializar el objeto a JSON si no tiene el prefijo (o como fallback)
+                        } else {
                              jsonPayload = MessageUtils.toJson(msg);
                         }
                     } else { // Si el formato original no es JSON, generar JSON desde el objeto
                         jsonPayload = MessageUtils.toJson(msg);
                     }
+                    
                     MimeBodyPart jsonAttachment = new MimeBodyPart();
-                    jsonAttachment.setContent(jsonPayload, "application/json; charset=UTF-8");
+                    DataSource jsonDataSource = new ByteArrayDataSource(jsonPayload.getBytes(StandardCharsets.UTF_8), "application/json");
+                    jsonAttachment.setDataHandler(new DataHandler(jsonDataSource));
                     jsonAttachment.setFileName("weather_data_" + msg.getServerId() + ".json");
                     attachments.add(jsonAttachment);
 
@@ -276,55 +269,52 @@ public class EmailService {
                          if (fullSerialization != null && fullSerialization.startsWith(MessageUtils.ENCODING_XML + ":")) {
                              xmlPayload = fullSerialization.substring((MessageUtils.ENCODING_XML + ":").length());
                          } else {
-                             // Necesitas un método que serialice a XML puro
-                             xmlPayload = msg.serializeToXmlStringForAttachment(); // Asume que este método existe y funciona
+                             // Asume que este método existe y devuelve XML puro
+                             xmlPayload = msg.serializeToXmlStringForAttachment(); 
                          }
                     } else { // Si el formato original no es XML, generar XML desde el objeto
-                        xmlPayload = msg.serializeToXmlStringForAttachment(); // Asume que este método existe y funciona
+                        // Asume que este método existe y devuelve XML puro
+                        xmlPayload = msg.serializeToXmlStringForAttachment(); 
                     }
 
-                    // Añadir adjunto XML solo si se generó correctamente
-                    if (xmlPayload != null && !xmlPayload.isEmpty() && !xmlPayload.startsWith("<!--")) { // Evitar placeholders o XML inválido
+                    if (xmlPayload != null && !xmlPayload.isEmpty() && !xmlPayload.startsWith("<!--")) { 
                         MimeBodyPart xmlAttachment = new MimeBodyPart();
-                        xmlAttachment.setContent(xmlPayload, "application/xml; charset=UTF-8");
+                        DataSource xmlDataSource = new ByteArrayDataSource(xmlPayload.getBytes(StandardCharsets.UTF_8), "application/xml");
+                        xmlAttachment.setDataHandler(new DataHandler(xmlDataSource));
                         xmlAttachment.setFileName("weather_data_" + msg.getServerId() + ".xml");
                         attachments.add(xmlAttachment);
                     }
 
-                } catch (Exception e) { 
+                } catch (Exception e) { // Captura más genérica para errores de adjuntos
                      System.err.println("Error creating attachment for " + msg.getServerId() + ": " + e.getMessage());
+                     e.printStackTrace(); 
                 }
             }
             textBody = sb.toString();
         }
-        // Enviar el correo electrónico con la información recopilada y los adjuntos
         sendEmail(recipientEmail, responseSubject, textBody, attachments);
     }
 
     private void sendEmail(String to, String subject, String textBody, List<MimeBodyPart> attachments) {
         try {
-            MimeMessage emailMessage = new MimeMessage(sendSession); // javax.mail.internet.MimeMessage
-            // Configurar remitente del servicio
+            MimeMessage emailMessage = new MimeMessage(sendSession); 
             emailMessage.setFrom(new InternetAddress(config.serviceEmailAddress));
-            emailMessage.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to)); // Destinatario de la respuesta (quien envió la petición)
+            emailMessage.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to)); 
             emailMessage.setSubject(subject);
             emailMessage.setSentDate(new Date());
 
-            // Cuerpo del mensaje de texto
             MimeBodyPart textPart = new MimeBodyPart();
             textPart.setText(textBody, "UTF-8", "plain");
 
-            // Contenedor multiparte para texto y adjuntos
-            Multipart multipart = new MimeMultipart();
+            Multipart multipart = new MimeMultipart(); 
             multipart.addBodyPart(textPart);
 
-            // Añadir adjuntos (archivos JSON/XML)
             if (attachments != null) {
                 for (MimeBodyPart attachmentPart : attachments) {
-                    multipart.addBodyPart(attachmentPart);
+                    multipart.addBodyPart(attachmentPart); 
                 }
             }
-            emailMessage.setContent(multipart); // El contenido del mensaje es el multiparte
+            emailMessage.setContent(multipart); 
             
             Transport.send(emailMessage);
             System.out.println("EmailService: Sent email response to " + to + " with subject: \"" + subject + "\"");

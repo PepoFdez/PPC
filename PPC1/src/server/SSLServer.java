@@ -15,7 +15,6 @@ import java.util.concurrent.Executors;
 public class SSLServer extends Thread {
 
     // Nombres de archivos y contraseñas para los keystores y truststores del servidor
-    // ¡¡IMPORTANTE!! Cambia "certs/server.jks" por el nombre real de tu keystore de servidor.
     static public final String SERVER_KEYSTORE_FILE = "certs/servidor.jks"; // Keystore del servidor (con su cert y clave privada)
     static public final String SERVER_KEYSTORE_PASSWORD = "cookie"; // Contraseña del keystore del servidor
     static public final String SERVER_KEY_PASSWORD = "cookie";      // Contraseña de la clave privada del servidor (si es diferente)
@@ -63,8 +62,6 @@ public class SSLServer extends Thread {
 
             // Requerir autenticación de cliente
             sslServerSocket.setNeedClientAuth(true);
-            // Opcional: Habilitar solo suites de cifrado fuertes
-            // sslServerSocket.setEnabledCipherSuites(new String[] { "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", "TLS_AES_128_GCM_SHA384" });
 
 
             System.out.println("Servidor HTTPS iniciado en el puerto " + this.port);
@@ -74,14 +71,10 @@ public class SSLServer extends Thread {
                 try {
                     Socket clientSocket = sslServerSocket.accept(); // Es un SSLSocket
                     System.out.println("Cliente HTTPS conectado desde: " + clientSocket.getRemoteSocketAddress());
-                    // Verificar sesión SSL si es necesario para depuración
-                    // if (clientSocket instanceof SSLSocket) {
-                    //     ((SSLSocket) clientSocket).getSession().getPeerCertificates(); // Puede lanzar SSLPeerUnverifiedException si no hay cert de cliente
-                    // }
+
                     pool.execute(new Handler(clientSocket, resourceAccessCount));
                 } catch (SSLPeerUnverifiedException e) {
                     System.err.println("Fallo de autenticación de cliente SSL: " + e.getMessage() + " desde ");
-                    // Aquí podrías cerrar el socket si no se ha cerrado ya
                 } catch (IOException e) {
                      if (sslServerSocket.isClosed()) {
                         System.out.println("Servidor HTTPS detenido.");

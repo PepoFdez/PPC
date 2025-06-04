@@ -46,32 +46,6 @@ public class Client {
                     String rawData = new String(packet.getData(), 0, packet.getLength());
 
                     MessageUtils.logMessage(logFileReceived, "From " + packet.getAddress() + ":" + packet.getPort() + " - " + rawData);
-                    /*System.out.println("\n--- Received Broadcast ---");
-                    System.out.println("Raw: " + rawData.substring(0, Math.min(rawData.length(),100)) + "...");
-
-                    if (!rawData.contains(":")) {
-                        System.err.println("Received malformed broadcast (no type prefix): " + rawData);
-                        continue;
-                    }
-
-                    DistributionMessage distMsg = DistributionMessage.deserialize(rawData);
-
-                    if (distMsg != null) {
-                        System.out.println("Decoded Distribution Message from Server: " + distMsg.getServerId());
-                        System.out.println("  Timestamp: " + new java.util.Date(distMsg.getTimestamp()));
-                        System.out.println("  Encoding: " + distMsg.getEncodingFormat());
-                        for (WeatherVariable var : distMsg.getVariables()) {
-                            System.out.println("  - " + var.toString());
-                        }
-                        if (distMsg.getEncodingFormat().equals(MessageUtils.ENCODING_XML)){
-                            // La validación DTD se hace dentro de MessageUtils.parseXmlString
-                            // y el mensaje de éxito se imprime en DistributionMessage.deserialize
-                        }
-                    } else {
-                        System.err.println("Failed to parse broadcast message.");
-                    }
-                     System.out.println("--- End Broadcast ---");
-                     */
                 } catch (SocketTimeoutException e) {
                     // Normal timeout
                 } catch (Exception e) {

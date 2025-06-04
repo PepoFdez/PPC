@@ -3,13 +3,16 @@
     messageId CDATA #REQUIRED
     timestamp CDATA #REQUIRED
     serverId CDATA #REQUIRED
-    encodingFormat (XML|JSON) #REQUIRED>
+    encodingFormat (XML|JSON) #REQUIRED
+    messageType CDATA #REQUIRED 
+>
 
 <!ELEMENT variables (variable+)>
 
 <!ELEMENT variable (value, unit)>
 <!ATTLIST variable
-    name CDATA #REQUIRED>
+    name CDATA #REQUIRED
+>
 
 <!ELEMENT value (#PCDATA)>
 <!ELEMENT unit (#PCDATA)>

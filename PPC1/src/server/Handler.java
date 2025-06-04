@@ -47,7 +47,6 @@ public class Handler extends Thread {
             StringTokenizer tokenizer = new StringTokenizer(requestLine);
             String method = tokenizer.hasMoreTokens() ? tokenizer.nextToken() : null;
             String resourcePath = tokenizer.hasMoreTokens() ? tokenizer.nextToken() : null;
-            // String httpVersion = tokenizer.hasMoreTokens() ? tokenizer.nextToken() : null; // No se usa actualmente
 
             if ("GET".equalsIgnoreCase(method) && resourcePath != null) {
                 String clientCookie = null;
@@ -60,8 +59,6 @@ public class Handler extends Thread {
                     }
                 }
 
-                // Incrementar el contador de recursos de forma sincronizada
-                // Asumimos que sharedResourceCount está inicializado por el servidor
                 if (sharedResourceCount != null) {
                     synchronized (sharedResourceCount) {
                         sharedResourceCount.put(resourcePath, sharedResourceCount.getOrDefault(resourcePath, 0) + 1);
@@ -109,10 +106,8 @@ public class Handler extends Thread {
 
         } catch (IOException e) {
             System.err.println("Error en el Handler para " + (clientSocket != null ? clientSocket.getRemoteSocketAddress() : "socket desconocido") + ": " + e.getMessage());
-            // e.printStackTrace(); // Opcional, para más detalle en depuración
         } finally {
-            // El try-with-resources se encarga de cerrar clientSocket, sIn, y sOut.
-            // Si no se usara try-with-resources, aquí iría el cierre explícito.
+
             System.out.println("Conexión cerrada con " + (clientSocket != null ? clientSocket.getRemoteSocketAddress() : "socket desconocido"));
         }
     }

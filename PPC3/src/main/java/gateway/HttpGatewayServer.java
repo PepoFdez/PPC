@@ -3,27 +3,22 @@ package gateway;
 import client.Client;
 // Importar HttpsServer y clases relacionadas con SSL
 import com.sun.net.httpserver.HttpsServer;
-import com.sun.net.httpserver.HttpServer; // Mantener para opción HTTP o si se necesita
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
-import javax.net.ssl.TrustManagerFactory; // Necesario si se configura mutual TLS
-
+//import javax.net.ssl.SSLEngine;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.security.KeyStore;
-import java.security.Security; // Para debug SSL
 import java.util.concurrent.Executors;
 
 public class HttpGatewayServer {
     private HttpsServer httpsServer; // Cambiado de HttpServer a HttpsServer
     // private HttpServer httpServer; // Opcional: si también quieres servir HTTP en otro puerto
-    private final Client clientBroker;
+    //private final Client clientBroker;
     private final int httpsPort;
 
     // Contraseñas para los JKS - ¡CAMBIAR POR LAS REALES Y GESTIONAR DE FORMA SEGURA!
@@ -33,7 +28,7 @@ public class HttpGatewayServer {
     private static final String KEYSTORE_PATH = "src/certs/servidor.jks"; // Ruta al keystore del servidor
 
     public HttpGatewayServer(int port, Client clientBroker) throws Exception { // Cambiado IOException a Exception por SSL
-        this.clientBroker = clientBroker;
+        //this.clientBroker = clientBroker;
         this.httpsPort = port;
 
         // Descomentar para debug SSL si hay problemas
@@ -72,7 +67,7 @@ public class HttpGatewayServer {
                 try {
                     // Obtener el contexto SSL del configurador
                     SSLContext context = getSSLContext();
-                    SSLEngine engine = context.createSSLEngine();
+                    //SSLEngine engine = context.createSSLEngine();
                     params.setNeedClientAuth(false); // Cambiar a true para mutual TLS
                     params.setSSLParameters(context.getDefaultSSLParameters());
                     // Podrías configurar aquí más cosas, como los cipher suites, protocolos, etc.

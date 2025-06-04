@@ -20,6 +20,4 @@ public abstract class AbstractMessage implements Serializable {
     public String getEncodingFormat() { return encodingFormat; }
     public void setEncodingFormat(String encodingFormat) { this.encodingFormat = encodingFormat; }
 
-    // Abstract methods for serialization to be implemented by subclasses
-    // These would typically return String (XML/JSON) or byte[]
 }

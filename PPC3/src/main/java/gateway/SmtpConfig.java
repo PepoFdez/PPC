@@ -43,4 +43,7 @@ public class SmtpConfig {
         this.serviceEmailAddress = serviceEmailAddress;
         this.pollingIntervalSeconds = pollingIntervalSeconds > 0 ? pollingIntervalSeconds : 60; // Default 60s si es inválido
     }
+    public String getUser() {
+    	return new String(smtpUser);
+    }
 }

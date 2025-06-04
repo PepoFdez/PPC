@@ -8,10 +8,10 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
 public class IndexHtmlHandler implements HttpHandler {
-    private final Client clientBroker;
+    //private final Client clientBroker;
 
     public IndexHtmlHandler(Client clientBroker) {
-        this.clientBroker = clientBroker;
+        //this.clientBroker = clientBroker;
     }
 
     @Override

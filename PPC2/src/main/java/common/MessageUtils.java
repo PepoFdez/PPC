@@ -64,18 +64,10 @@ public class MessageUtils {
     public static Document parseXmlString(String xmlString, String dtdSystemIdOrSchemaPath) throws ParserConfigurationException, SAXException, IOException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         
-        // Para validación DTD, el DTD debe estar referenciado en el propio XML (DOCTYPE)
-        // y se activa con setValidating(true).
-        // Para XSD, se configuraría un Schema.
         if (dtdSystemIdOrSchemaPath != null && !dtdSystemIdOrSchemaPath.isEmpty()) {
             // Ejemplo básico para validación DTD (si el DOCTYPE ya está en el XML)
             factory.setValidating(true); 
             factory.setNamespaceAware(true); // Importante para XSD y a veces para DTD complejos
-
-            // Si fuera XSD:
-            // SchemaFactory schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-            // Schema schema = schemaFactory.newSchema(new File(dtdSystemIdOrSchemaPath));
-            // factory.setSchema(schema);
         }
 
         DocumentBuilder builder = factory.newDocumentBuilder();

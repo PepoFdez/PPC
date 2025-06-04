@@ -11,7 +11,7 @@ public class ControlMessage extends AbstractMessage {
     private Map<String, Object> parameters;
     private String messageType = "CONTROL"; // Para ayudar a GSON
 
-    // Constructor para GSON (puede ser private si GSON usa reflection)
+    // Constructor para GSON
     private ControlMessage() {
         super();
         this.parameters = new HashMap<>();

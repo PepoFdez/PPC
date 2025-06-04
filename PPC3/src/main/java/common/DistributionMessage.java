@@ -2,47 +2,40 @@ package common;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale; // Importar Locale
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import com.google.gson.JsonSyntaxException; // Para el manejo de errores de GSON
+import com.google.gson.JsonSyntaxException;
 
 public class DistributionMessage extends AbstractMessage {
     private static final long serialVersionUID = 1L;
     private String serverId;
     private List<WeatherVariable> variables;
-    private String messageType = "DISTRIBUTION"; // Para ayudar a GSON a serializar este campo
+    private String messageType = "DISTRIBUTION";
 
     public DistributionMessage(String serverId, String encodingFormat) {
         super();
         this.serverId = serverId;
         this.variables = new ArrayList<>();
-        this.setEncodingFormat(encodingFormat); // Heredado de AbstractMessage
+        this.setEncodingFormat(encodingFormat);
     }
-
-    // Constructor vacío para GSON (si es necesario, aunque GSON es bastante flexible)
-    /*private DistributionMessage() {
-        super();
-        this.variables = new ArrayList<>();
-    }*/
-
 
     public void addVariable(WeatherVariable var) {
         this.variables.add(var);
     }
 
-    // Getters y Setters (asegúrate de que todos los campos que quieres serializar tengan getters)
     public String getServerId() { return serverId; }
     public List<WeatherVariable> getVariables() { return variables; }
-    public String getMessageType() { return messageType; } // Getter para messageType
-
+    public String getMessageType() { return messageType; }
 
     public String serialize() {
         if (MessageUtils.ENCODING_JSON.equalsIgnoreCase(getEncodingFormat())) {
-            return MessageUtils.ENCODING_JSON + ":" + MessageUtils.toJson(this); // GSON serializará el objeto 'this'
+            return MessageUtils.ENCODING_JSON + ":" + MessageUtils.toJson(this);
         } else {
-            return toXmlString();
+            return toXmlString(); // Llama al método que genera XML
         }
     }
 
@@ -52,13 +45,11 @@ public class DistributionMessage extends AbstractMessage {
             Element root = doc.createElement("distributionMessage");
             doc.appendChild(root);
 
-            // Atributos de AbstractMessage y DistributionMessage
             root.setAttribute("messageId", getMessageId());
             root.setAttribute("timestamp", String.valueOf(getTimestamp()));
             root.setAttribute("serverId", serverId);
-            root.setAttribute("encodingFormat", getEncodingFormat()); // Viene de AbstractMessage
-            root.setAttribute("messageType", messageType);
-
+            root.setAttribute("encodingFormat", getEncodingFormat());
+            root.setAttribute("messageType", messageType); // Atributo añadido según DTD
 
             Element varsElement = doc.createElement("variables");
             root.appendChild(varsElement);
@@ -67,13 +58,16 @@ public class DistributionMessage extends AbstractMessage {
                 Element varElement = doc.createElement("variable");
                 varElement.setAttribute("name", var.getName());
                 Element valueEl = doc.createElement("value");
-                valueEl.appendChild(doc.createTextNode(String.format("%.2f", var.getValue())));
+                // --- CAMBIO IMPORTANTE: Usar Locale.US para formatear el double ---
+                valueEl.appendChild(doc.createTextNode(String.format(Locale.US, "%.2f", var.getValue())));
+                // -----------------------------------------------------------------
                 Element unitEl = doc.createElement("unit");
                 unitEl.appendChild(doc.createTextNode(var.getUnit()));
                 varElement.appendChild(valueEl);
                 varElement.appendChild(unitEl);
                 varsElement.appendChild(varElement);
             }
+            // MessageUtils.toXml ahora añade el DOCTYPE si está configurado en el Transformer
             return MessageUtils.ENCODING_XML + ":" + MessageUtils.toXml(doc);
         } catch (ParserConfigurationException e) {
             throw new RuntimeException("Error creating XML for DistributionMessage", e);
@@ -91,28 +85,23 @@ public class DistributionMessage extends AbstractMessage {
         if (MessageUtils.ENCODING_JSON.equals(type)) {
             try {
                 DistributionMessage msg = MessageUtils.fromJson(data, DistributionMessage.class);
-                // GSON debería haber poblado 'serverId', 'variables', y los campos de AbstractMessage
-                // si los nombres de los campos coinciden y tienen setters o son accesibles.
-                // Si AbstractMessage tiene campos que no se setean, considera pasarlos en el constructor
-                // o asegurar que GSON pueda acceder a ellos.
-                // Forzamos el encodingFormat aquí porque GSON no lo sabrá del propio JSON si no está como campo
-                msg.setEncodingFormat(MessageUtils.ENCODING_JSON);
+                if (msg != null) {
+                     msg.setEncodingFormat(MessageUtils.ENCODING_JSON);
+                }
                 return msg;
             } catch (JsonSyntaxException e) {
-                System.err.println("Error parsing JSON distribution message with GSON: " + e.getMessage());
+                System.err.println("Error parsing JSON distribution message: " + e.getMessage());
                 return null;
             }
         } else if (MessageUtils.ENCODING_XML.equals(type)) {
             try {
+                // El DTD name se pasa para el EntityResolver en el cliente
                 Document doc = MessageUtils.parseXmlString(data, "distribution_message.dtd"); 
                 Element root = doc.getDocumentElement();
                 
                 String serverId = root.getAttribute("serverId");
-                // String encoding = root.getAttribute("encodingFormat"); // Ya lo sabemos por el prefijo
-
                 DistributionMessage msg = new DistributionMessage(serverId, MessageUtils.ENCODING_XML);
-                // Poblar campos de AbstractMessage desde atributos XML
-                msg.messageId = root.getAttribute("messageId"); // Asumiendo acceso package-private o protected
+                msg.messageId = root.getAttribute("messageId"); 
                 msg.timestamp = Long.parseLong(root.getAttribute("timestamp"));
 
 
@@ -120,33 +109,33 @@ public class DistributionMessage extends AbstractMessage {
                 for (int i = 0; i < varNodes.getLength(); i++) {
                     Element varElement = (Element) varNodes.item(i);
                     String name = varElement.getAttribute("name");
+                    // Double.parseDouble debería funcionar bien si el XML usa "."
                     double value = Double.parseDouble(varElement.getElementsByTagName("value").item(0).getTextContent());
                     String unit = varElement.getElementsByTagName("unit").item(0).getTextContent();
                     msg.addVariable(new WeatherVariable(name, value, unit));
                 }
-                System.out.println("Mensaje XML (Distribución) validado y parseado correctamente.");
+              
                 return msg;
-            } catch (Exception e) {
+            } catch (Exception e) { // Captura más genérica por si parseDouble u otros fallan
                 System.err.println("Error parsing XML distribution message: " + e.getMessage());
-                e.printStackTrace();
+                e.printStackTrace(); // Útil para ver la NumberFormatException completa si ocurre
                 return null;
             }
         }
         return null;
     }
     
+    // Método para adjuntos de correo
     public String serializeToXmlStringForAttachment() {
         try {
             Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
-            Element root = doc.createElement("distributionMessage");
+            Element root = doc.createElement("distributionMessage"); // Mismo elemento raíz
             doc.appendChild(root);
 
             root.setAttribute("messageId", getMessageId());
             root.setAttribute("timestamp", String.valueOf(getTimestamp()));
             root.setAttribute("serverId", serverId);
-            // No incluir encodingFormat como atributo si el adjunto es solo el payload
-            // root.setAttribute("encodingFormat", getEncodingFormat());
-            root.setAttribute("messageType", messageType);
+            root.setAttribute("messageType", messageType); // Consistente con toXmlString
 
             Element varsElement = doc.createElement("variables");
             root.appendChild(varsElement);
@@ -155,19 +144,20 @@ public class DistributionMessage extends AbstractMessage {
                 Element varElement = doc.createElement("variable");
                 varElement.setAttribute("name", var.getName());
                 Element valueEl = doc.createElement("value");
-                valueEl.appendChild(doc.createTextNode(String.format("%.2f", var.getValue()))); // Cuidado con locale aquí para el formato decimal
+                // --- CAMBIO IMPORTANTE: Usar Locale.US para formatear el double ---
+                valueEl.appendChild(doc.createTextNode(String.format(Locale.US, "%.2f", var.getValue())));
+                // -----------------------------------------------------------------
                 Element unitEl = doc.createElement("unit");
                 unitEl.appendChild(doc.createTextNode(var.getUnit()));
                 varElement.appendChild(valueEl);
                 varElement.appendChild(unitEl);
                 varsElement.appendChild(varElement);
-            }
-            // Convertir Document a String sin el prefijo "XML:"
-            return MessageUtils.toXml(doc); // Asumiendo que MessageUtils.toXml devuelve el string XML puro
+            }     
+            return common.MessageUtils.toXml(doc); 
+
         } catch (ParserConfigurationException e) {
-            // Log o throw RuntimeException
             System.err.println("Error creating XML for attachment: " + e.getMessage());
-            return null; // O un XML de error <error>...</error>
+            return "<!-- Error generating XML for attachment -->";
         }
     }
 }

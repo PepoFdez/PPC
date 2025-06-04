@@ -1,39 +1,36 @@
 package common;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.StringReader;
-import java.io.StringWriter;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
+import org.w3c.dom.Document;
+import org.xml.sax.EntityResolver; 
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.OutputKeys;
+import javax.xml.transform.OutputKeys; // Asegúrate que esta importación esté
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-// import javax.xml.validation.SchemaFactory; // Descomentar si se usa XSD
-// import javax.xml.validation.Schema; // Descomentar si se usa XSD
-// import javax.xml.XMLConstants; // Descomentar si se usa XSD
-import org.w3c.dom.Document;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
-// import java.io.File; // Descomentar si se usa XSD desde archivo
-
-// --- Imports para GSON ---
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream; 
+import java.io.StringReader;
+import java.io.StringWriter;
 
 public class MessageUtils {
 
     public static final String ENCODING_JSON = "JSON";
     public static final String ENCODING_XML = "XML";
 
-    // Instancia de GSON
     private static final Gson gson = new GsonBuilder()
-                                        .setPrettyPrinting() // Para que el JSON sea legible
+                                        .setPrettyPrinting()
                                         .create();
 
     public static String toJson(Object obj) {
@@ -44,6 +41,7 @@ public class MessageUtils {
         return gson.fromJson(json, classOfT);
     }
 
+    // --- MÉTODO MODIFICADO ---
     public static String toXml(Document doc) {
         try {
             TransformerFactory tf = TransformerFactory.newInstance();
@@ -53,6 +51,13 @@ public class MessageUtils {
             transformer.setOutputProperty(OutputKeys.INDENT, "yes");
             transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
 
+            if (doc.getDocumentElement() != null) {
+                transformer.setOutputProperty(OutputKeys.DOCTYPE_SYSTEM, "distribution_message.dtd");
+            } else {
+                System.err.println("Advertencia (MessageUtils.toXml): El Document no tiene elemento raíz, no se puede añadir DOCTYPE.");
+            }
+
+
             StringWriter sw = new StringWriter();
             transformer.transform(new DOMSource(doc), new StreamResult(sw));
             return sw.toString();
@@ -61,39 +66,47 @@ public class MessageUtils {
         }
     }
 
-    public static Document parseXmlString(String xmlString, String dtdSystemIdOrSchemaPath) throws ParserConfigurationException, SAXException, IOException {
+    public static Document parseXmlString(String xmlString, final String dtdName) throws ParserConfigurationException, SAXException, IOException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         
-        // Para validación DTD, el DTD debe estar referenciado en el propio XML (DOCTYPE)
-        // y se activa con setValidating(true).
-        // Para XSD, se configuraría un Schema.
-        if (dtdSystemIdOrSchemaPath != null && !dtdSystemIdOrSchemaPath.isEmpty()) {
-            // Ejemplo básico para validación DTD (si el DOCTYPE ya está en el XML)
-            factory.setValidating(true); 
-            factory.setNamespaceAware(true); // Importante para XSD y a veces para DTD complejos
+        factory.setValidating(true); 
+        factory.setNamespaceAware(false); 
 
-            // Si fuera XSD:
-            // SchemaFactory schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-            // Schema schema = schemaFactory.newSchema(new File(dtdSystemIdOrSchemaPath));
-            // factory.setSchema(schema);
-        }
 
         DocumentBuilder builder = factory.newDocumentBuilder();
         
+        builder.setEntityResolver(new EntityResolver() {
+            @Override
+            public InputSource resolveEntity(String publicId, String systemId)
+                    throws SAXException, IOException {
+                if (systemId != null && systemId.endsWith(dtdName)) {
+                    InputStream dtdStream = MessageUtils.class.getClassLoader().getResourceAsStream(dtdName);
+                    if (dtdStream != null) {
+                       
+                        return new InputSource(dtdStream);
+                    } else {
+                       
+                        return null;
+                    }
+                }
+                return null;
+            }
+        });
+
         builder.setErrorHandler(new org.xml.sax.ErrorHandler() {
             @Override
-            public void warning(org.xml.sax.SAXParseException exception) throws SAXException {
-                System.err.println("XML Validation Warning: " + exception.getMessage());
+            public void warning(SAXParseException exception) throws SAXException {
+                System.err.println("XML Validation Warning: " + exception.getMessage() + " (Line: " + exception.getLineNumber() + ", Column: " + exception.getColumnNumber() + ")");
             }
             @Override
-            public void error(org.xml.sax.SAXParseException exception) throws SAXException {
-                System.err.println("XML Validation Error: " + exception.getMessage());
-                throw exception;
+            public void error(SAXParseException exception) throws SAXException {
+                System.err.println("XML Validation Error: " + exception.getMessage() + " (Line: " + exception.getLineNumber() + ", Column: " + exception.getColumnNumber() + ")");
+                throw exception; 
             }
             @Override
-            public void fatalError(org.xml.sax.SAXParseException exception) throws SAXException {
-                System.err.println("XML Validation Fatal Error: " + exception.getMessage());
-                throw exception;
+            public void fatalError(SAXParseException exception) throws SAXException {
+                System.err.println("XML Validation Fatal Error: " + exception.getMessage() + " (Line: " + exception.getLineNumber() + ", Column: " + exception.getColumnNumber() + ")");
+                throw exception; 
             }
         });
         
@@ -106,7 +119,6 @@ public class MessageUtils {
             writer.newLine();
             writer.write("----"); 
             writer.newLine();
-           // System.out.println("Logged to " + fileName + ":\n" + content.substring(0, Math.min(content.length(), 100)) + "...");
         } catch (IOException e) {
             System.err.println("Error logging message to " + fileName + ": " + e.getMessage());
         }

@@ -206,7 +206,7 @@ private void processControlMessage(ControlMessage msg, InetAddress clientAddr, i
                     responseDetails = "Invalid frequency: " + newFreq;
                 }
                 break;
-            case "SET_VARIABLE_UNIT":
+            case "SET_UNIT":
                 String varName = (String) params.get("variableName");
                 String newUnit = (String) params.get("newUnit");
                 boolean found = false;
